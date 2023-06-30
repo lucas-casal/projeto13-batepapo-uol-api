@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import joi from 'joi';
+import { stripHtml } from 'string-strip-html';
 
 dotenv.config()
 const mongoClient = new MongoClient(process.env.DATABASE_URL);
@@ -18,12 +19,13 @@ app.use(cors());
 app.use(express.json())
 
 app.post('/participants', async (req, res)=>{
-    const {name} = req.body;
-    const message = {from: name, to: 'Todos', text: 'Entra na sala...', type: 'status', time: dayjs().format("HH:mm:ss")}
+    const name = stripHtml(req.body.name).result
+    const message = {from: name.trim(), to: 'Todos', text: 'Entra na sala...', type: 'status', time: dayjs().format("HH:mm:ss")}
     const userSchema = joi.string().required()
     const validation = userSchema.validate(name);
 
-    if(validation.error) return res.sendStatus(422)
+    //if(validation.error) return res.sendStatus(422)
+    if(validation.error) return res.send(validation)
     try{
         const userExists = await db.collection("participants").findOne({name: name});
         if (userExists) return res.sendStatus(409)
@@ -48,8 +50,10 @@ app.get('/participants', async (req, res)=> {
 })
 
 app.post('/messages', async (req, res) =>{
-    const {to, text, type} = req.body
-    const {user} = req.headers
+    const to = stripHtml(req.body.to).result
+    const text = stripHtml(req.body.text).result
+    const type = stripHtml(req.body.type).result
+    const user = stripHtml(req.headers.user).result
     const messageSchema = joi.object({
         from: joi.string().required(),
         to: joi.string().required(),
@@ -58,7 +62,7 @@ app.post('/messages', async (req, res) =>{
         time: joi.required()
     })
     if (!user) return res.sendStatus(422)
-    const message = {from: user, to, text, type, time: dayjs().format("HH:mm:ss")}
+    const message = {from: user.trim(), to: to.trim(), text: text.trim(), type: type.trim(), time: dayjs().format("HH:mm:ss")}
     const validation = messageSchema.validate(message)
     const participant = await db.collection("participants").findOne({name: user})
     try{
@@ -117,8 +121,9 @@ setInterval(async ()=>{
     //console.log(willBeDeleted)
 
     willBeDeleted.forEach(async (x) =>{ 
-        const message = {from: x.name, to: 'Todos', text: 'Sai da sala...', type: 'status', time: dayjs().format("HH:mm:ss")}
+        const message = {from: x.name, to: 'Todos', text: 'sai da sala...', type: 'status', time: dayjs().format("HH:mm:ss")}
         await db.collection("messages").insertOne(message)
+
     })}
     catch{
         console.log('Deu ruim')

@@ -28,6 +28,7 @@ app.post('/participants', async (req, res)=>{
         const userExists = await db.collection("participants").findOne({name: name});
         if (userExists) return res.sendStatus(409)
         await db.collection("participants").insertOne({name, lastStatus: Date.now()})
+        await db.collection("messages").insertOne(message)
         res.sendStatus(201) 
         
     } catch{
@@ -61,7 +62,7 @@ app.post('/messages', async (req, res) =>{
     const validation = messageSchema.validate(message)
     const participant = await db.collection("participants").findOne({name: user})
     try{
-        if (!participant) return res.sendStatus(401)
+        if (!participant) return res.sendStatus(422)
         if (validation.error || (type !== "message" && type !== "private_message")) return res.status(422).send(validation.error)
         
         await db.collection("messages").insertOne(message)
@@ -109,11 +110,11 @@ app.post('/status', async (req, res) => {
 
 setInterval(async ()=>{
     const tenSecAgo = Date.now()-10000
-    console.log(tenSecAgo)
+    //console.log(tenSecAgo)
     try{
     const willBeDeleted = await db.collection("participants").find({lastStatus: { $lt:tenSecAgo }}).toArray()
     await db.collection("participants").deleteMany({lastStatus: { $lt:tenSecAgo }})
-    console.log(willBeDeleted)
+    //console.log(willBeDeleted)
 
     willBeDeleted.forEach(async (x) =>{ 
         const message = {from: x.name, to: 'Todos', text: 'Sai da sala...', type: 'status', time: dayjs().format("HH:mm:ss")}

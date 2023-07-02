@@ -1,7 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import dayjs from 'dayjs';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import dotenv from 'dotenv';
 import joi from 'joi';
 import { stripHtml } from 'string-strip-html';
@@ -58,7 +58,7 @@ app.post('/messages', async (req, res) =>{
         from: joi.string().required(),
         to: joi.string().required(),
         text: joi.string().required(),
-        type: joi.required(),
+        type: joi.string().valid('message', 'private_message').required(),
         time: joi.required()
     })
     if (!user) return res.sendStatus(422)
@@ -67,7 +67,7 @@ app.post('/messages', async (req, res) =>{
     const participant = await db.collection("participants").findOne({name: user})
     try{
         if (!participant) return res.sendStatus(422)
-        if (validation.error || (type !== "message" && type !== "private_message")) return res.status(422).send(validation.error)
+        if (validation.error) return res.status(422).send(validation.error)
         
         await db.collection("messages").insertOne(message)
         res.sendStatus(201)
@@ -112,7 +112,52 @@ app.post('/status', async (req, res) => {
     }
 })
 
-setInterval(async ()=>{
+app.delete('/messages/:id', async (req, res) => {
+    const {id} = req.params;
+    const {user} = req.headers;
+    try{
+        const message = await db.collection("messages").findOne({_id: new ObjectId(id)})
+        if (!message) return res.sendStatus(404)
+
+        if (message.from !== user) return res.sendStatus(401)
+
+        await db.collection("messages").deleteOne({_id: new ObjectId(id)})
+        res.sendStatus(200)
+    }
+    catch{
+        res.sendStatus(400)
+    }
+})
+
+app.put('/messages/:id', async (req, res) => {
+    const {id} = req.params;
+    const {user} = req.headers;
+    const {to, text, type} = req.body
+    const updateMessageSchema = joi.object({
+        to: joi.string().required(),
+        type: joi.string().valid('message', 'private_message').required(),
+        text: joi.required()
+    })
+
+    try{
+        const participant = await db.collection("participants").findOne({name: user})
+        const validation = updateMessageSchema.validate({to, type, text})
+        if (!participant || validation.error) return res.sendStatus(422)
+    
+        const message = await db.collection("messages").findOne({_id: new ObjectId(id)})
+        if (!message) return res.sendStatus(404)
+
+        if (message.from !== user) return res.sendStatus(401)
+
+        await db.collection("messages").updateOne({_id: new ObjectId(id)}, {$set: {to, type, text}})
+        res.sendStatus(200)
+    }
+    catch{
+        res.sendStatus(400)
+    }
+})
+
+/*setInterval(async ()=>{
     const tenSecAgo = Date.now()-10000
     //console.log(tenSecAgo)
     try{
@@ -129,7 +174,7 @@ setInterval(async ()=>{
         console.log('Deu ruim')
     }
 },15000)
-
+*/
 
 const PORT = 5000
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`))

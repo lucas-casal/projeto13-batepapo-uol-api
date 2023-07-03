@@ -24,8 +24,9 @@ app.post('/participants', async (req, res)=>{
     const userSchema = joi.string().required()
     const validation = userSchema.validate(name);
 
-    if(validation.error) return res.sendStatus(422)
+    
     try{
+        if(validation.error) return res.sendStatus(422)
         const userExists = await db.collection("participants").findOne({name: name});
         if (userExists) return res.sendStatus(409)
         await db.collection("participants").insertOne({name, lastStatus: Date.now()})
@@ -60,17 +61,17 @@ app.post('/messages', async (req, res) =>{
         type: joi.string().valid('message', 'private_message').required(),
         time: joi.required()
     })
-    if (!user) return res.sendStatus(422)
-    const message = {from: user.trim(), to: to.trim(), text: text.trim(), type: type.trim(), time: dayjs().format("HH:mm:ss")}
-    const validation = messageSchema.validate(message)
-    const participant = await db.collection("participants").findOne({name: user})
+   
     try{
+        if (!user) return res.sendStatus(422)
+        const message = {from: user.trim(), to: to.trim(), text: text.trim(), type: type.trim(), time: dayjs().format("HH:mm:ss")}
+        const validation = messageSchema.validate(message)
+        const participant = await db.collection("participants").findOne({name: user})
         if (!participant) return res.sendStatus(422)
         if (validation.error) return res.sendStatus(422)
         
         await db.collection("messages").insertOne(message)
         res.sendStatus(201)
-        console.log(message)
     }catch{
         res.sendStatus(400)
     }
@@ -99,12 +100,12 @@ app.get('/messages', async (req, res) =>{
 
 app.post('/status', async (req, res) => {
     const {user} = req.headers;
-    if (!user) return res.sendStatus(404)
+   
     try{
+        if (!user) return res.sendStatus(404)
         const participant = await db.collection("participants").findOne({name: user})
         if (!participant) return res.sendStatus(404)
         await db.collection("participants").updateOne({name: user}, {$set:{lastStatus: Date.now()}})
-        console.log(`User ${user} teve seu status atualizado`)
         res.sendStatus(200)
     } catch{
      res.sendStatus(400)   
@@ -158,11 +159,10 @@ app.put('/messages/:id', async (req, res) => {
 
 setInterval(async ()=>{
     const tenSecAgo = Date.now()-10000
-    //console.log(tenSecAgo)
+
     try{
     const willBeDeleted = await db.collection("participants").find({lastStatus: { $lt:tenSecAgo }}).toArray()
     await db.collection("participants").deleteMany({lastStatus: { $lt:tenSecAgo }})
-    //console.log(willBeDeleted)
 
     willBeDeleted.forEach(async (x) =>{ 
         const message = {from: x.name, to: 'Todos', text: 'sai da sala...', type: 'status', time: dayjs().format("HH:mm:ss")}
@@ -170,7 +170,7 @@ setInterval(async ()=>{
 
     })}
     catch{
-        console.log('Deu ruim')
+        res.sendStatus(400)
     }
 },15000)
 

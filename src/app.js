@@ -24,8 +24,7 @@ app.post('/participants', async (req, res)=>{
     const userSchema = joi.string().required()
     const validation = userSchema.validate(name);
 
-    //if(validation.error) return res.sendStatus(422)
-    if(validation.error) return res.send(validation)
+    if(validation.error) return res.sendStatus(422)
     try{
         const userExists = await db.collection("participants").findOne({name: name});
         if (userExists) return res.sendStatus(409)
@@ -67,7 +66,7 @@ app.post('/messages', async (req, res) =>{
     const participant = await db.collection("participants").findOne({name: user})
     try{
         if (!participant) return res.sendStatus(422)
-        if (validation.error) return res.status(422).send(validation.error)
+        if (validation.error) return res.sendStatus(422)
         
         await db.collection("messages").insertOne(message)
         res.sendStatus(201)
@@ -141,7 +140,7 @@ app.put('/messages/:id', async (req, res) => {
 
     try{
         const participant = await db.collection("participants").findOne({name: user})
-        const validation = updateMessageSchema.validate({to, type, text})
+        const validation = updateMessageSchema.validate({to: to, type: type, text: text})
         if (!participant || validation.error) return res.sendStatus(422)
     
         const message = await db.collection("messages").findOne({_id: new ObjectId(id)})
@@ -157,7 +156,7 @@ app.put('/messages/:id', async (req, res) => {
     }
 })
 
-/*setInterval(async ()=>{
+setInterval(async ()=>{
     const tenSecAgo = Date.now()-10000
     //console.log(tenSecAgo)
     try{
@@ -174,7 +173,7 @@ app.put('/messages/:id', async (req, res) => {
         console.log('Deu ruim')
     }
 },15000)
-*/
+
 
 const PORT = 5000
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`))
